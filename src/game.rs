@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Mutex;
 use uuid::Uuid;
 pub enum GameStatus {
     RUNNING,
@@ -8,7 +9,7 @@ pub enum GameStatus {
 }
 
 pub struct GameList{
-    pub list: HashMap<String,Game>
+    pub list: Mutex<HashMap<String,Game>>
 }
 
 

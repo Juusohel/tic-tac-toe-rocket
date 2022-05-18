@@ -2,6 +2,7 @@ mod game;
 #[macro_use] extern crate rocket;
 
 use std::collections::HashMap;
+use std::sync::Mutex;
 use rocket::response::Redirect;
 use rocket::State;
 use crate::game::{Game, GameList};
@@ -19,10 +20,9 @@ fn all_games() -> &'static str {
 
 #[get("/games/<id>")]
 fn game_board(id: String, game_list: &State<GameList>) -> String {
-
-    let current_game = game_list.list.get(&*id);
+    let lock = game_list.inner();
     let board_state;
-    match current_game {
+    match lock.list.lock().unwrap().get(&*id) {
         Some(game) => board_state = game.get_board().clone(),
         None => board_state = String::from("No game found!")
     }
@@ -33,8 +33,9 @@ fn game_board(id: String, game_list: &State<GameList>) -> String {
 #[post("/games", data = "<board>")]
 fn new_game(board: String, game_list: &State<GameList>) -> Redirect {
     let new_game = Game::new(board);
-    let id = new_game.get_id().clone();
-    game_list.list.insert(id.unwrap(), new_game);
+    let id = new_game.get_id().clone().unwrap();
+    let lock = game_list.inner();
+    lock.list.lock().unwrap().insert(id,new_game);
     Redirect::to(uri!("games/"))
 }
 
@@ -43,12 +44,14 @@ fn new_game(board: String, game_list: &State<GameList>) -> Redirect {
 #[launch]
 fn rocket() -> _ {
 
-    rocket::build().manage(GameList{list: HashMap::new()});
+
 
 
     rocket::build()
+        .manage(GameList { list: Mutex::new(HashMap::new()) })
         .mount("/", routes![index])
-        .mount("/", routes![all_games])
+        .mount("/", routes![all_games, game_board])
+
 
 }
 
