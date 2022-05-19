@@ -14,6 +14,7 @@ pub struct GameList{
     pub list: Mutex<HashMap<String,Game>>
 }
 
+#[derive(Clone)]
 #[derive(Serialize)]
 #[derive(Deserialize)]
 pub struct Game {
