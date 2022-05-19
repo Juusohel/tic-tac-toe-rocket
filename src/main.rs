@@ -39,8 +39,30 @@ fn game_board(id: String, game_list: &State<GameList>) -> Json<Game> {
 }
 
 
-//#[put("/games/<id>")]
-//fn
+#[put("/games/<id>" , format = "json", data = "<game>")]
+fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>) -> Json<Game> {
+    let lock = game_list.inner();
+    let submitted_new_game_state = game;
+    let current_game;
+    if lock.list.lock().unwrap().contains_key(&*id) {
+        let mut guard = lock.list.lock().unwrap();
+        let map_entry = guard.get_mut(&*id);
+
+        match map_entry {
+            Some(game) => current_game = game,
+            _ => {
+                panic!("unreachable");
+            }
+        }
+        // Validate move
+        // make computer move
+        let new_board = submitted_new_game_state.get_board().clone();// generate new board based on moves TEMP
+        current_game.set_board(new_board);
+        return Json(current_game.clone());
+    }
+    panic!("No game found")
+
+}
 
 
 #[post("/games", format = "json", data = "<board>")]
@@ -74,7 +96,7 @@ fn rocket() -> _ {
     rocket::build()
         .manage(GameList { list: Mutex::new(HashMap::new()) })
         .mount("/", routes![index])
-        .mount("/", routes![all_games, game_board, new_game])
+        .mount("/", routes![all_games, game_board, new_game, put_player_move])
 
 
 }
