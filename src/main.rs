@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use rocket::response::Redirect;
 use rocket::State;
+use rocket::serde::json::Json;
 use crate::game::{Game, GameList};
 
 
@@ -30,13 +31,15 @@ fn game_board(id: String, game_list: &State<GameList>) -> String {
 }
 
 
-#[post("/games", data = "<board>")]
-fn new_game(board: String, game_list: &State<GameList>) -> Redirect {
-    let new_game = Game::new(board);
+#[post("/games", format = "json", data = "<board>")]
+fn new_game(board: Json<Game> , game_list: &State<GameList>) -> Redirect {
+    let new_board = board.get_board().clone();
+    let new_game = Game::new(new_board);
     let id = new_game.get_id().clone().unwrap();
+    let id_for_redirect = id.clone();
     let lock = game_list.inner();
     lock.list.lock().unwrap().insert(id,new_game);
-    Redirect::to(uri!("games/"))
+    Redirect::to(format!("games/{}",id_for_redirect))
 }
 
 
@@ -50,7 +53,7 @@ fn rocket() -> _ {
     rocket::build()
         .manage(GameList { list: Mutex::new(HashMap::new()) })
         .mount("/", routes![index])
-        .mount("/", routes![all_games, game_board])
+        .mount("/", routes![all_games, game_board, new_game])
 
 
 }
