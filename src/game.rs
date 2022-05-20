@@ -77,10 +77,10 @@ impl Game {
     pub fn check_win_conditions(&mut self) -> bool {
         let board_rows: Vec<&str>;
         let current_board = &self.board.clone();
-        let row1 = &current_board[0..3];
-        let row2 = &current_board[3..6];
-        let row3 = &current_board[6..];
-        board_rows = vec!(row1,row2,row3);
+        let row0 = &current_board[0..3];
+        let row1 = &current_board[3..6];
+        let row2 = &current_board[6..];
+        board_rows = vec!(row0, row1, row2);
 
         // temporary variables for logic use
         let mut win_x: bool = false;
@@ -90,6 +90,7 @@ impl Game {
         // This is a bit slow but there's no clever way to take the character as an input
         // since the game object stores it as a single string anyway and the function would
         // just have to be duplicated on each type of move function.
+        // That and since the board is 9 characters long, the impact is negligible even on low power devices
 
         // Checking rows for X
         for rows in &board_rows {
@@ -125,6 +126,25 @@ impl Game {
             }
         }
 
+        //Checking columns
+        // Preparing rows for parallel iteration
+        let r0 = row0.chars();
+        let r12 = row1.chars().zip(row2.chars());
+
+        // Iterating over all the rows parallel
+        for (r0, r12) in r0.zip(r12) {
+            let r0_char = r0;
+            let (r1_char, r2_char) = r12;
+
+            // If all characters are the same, check which one they are and behave accordingly
+            if (r0_char == r1_char) && (r2_char == r0_char)  {
+                match r0_char {
+                    'X' => self.set_status(XWon),
+                    'O' => self.set_status(OWon),
+                    _ => continue
+                }
+            }
+        }
 
 
         false
