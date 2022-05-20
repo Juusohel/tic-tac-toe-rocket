@@ -1,7 +1,6 @@
 mod game;
 #[macro_use] extern crate rocket;
 
-use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use rocket::response::Redirect;

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
-use crate::game::GameStatus::{OWon, XWon};
+use crate::game::GameStatus::{DRAW, OWon, XWon};
 
 pub enum GameStatus {
     RUNNING,
@@ -85,12 +85,14 @@ impl Game {
         // temporary variables for logic use
         let mut win_x: bool = false;
         let mut win_o: bool = false;
-        let draw: bool = false;
+
 
         // This is a bit slow but there's no clever way to take the character as an input
         // since the game object stores it as a single string anyway and the function would
         // just have to be duplicated on each type of move function.
         // That and since the board is 9 characters long, the impact is negligible even on low power devices
+        // Despite appearing rather convoluted, should only be O(5n)
+
 
         // Checking rows for X
         for rows in &board_rows {
@@ -139,15 +141,79 @@ impl Game {
             // If all characters are the same, check which one they are and behave accordingly
             if (r0_char == r1_char) && (r2_char == r0_char)  {
                 match r0_char {
-                    'X' => self.set_status(XWon),
-                    'O' => self.set_status(OWon),
+                    'X' => {
+                        self.set_status(XWon);
+                        return true
+                    }
+                    'O' => {
+                        self.set_status(OWon);
+                        return true
+                    }
                     _ => continue
                 }
             }
         }
 
+        // Checking diagonals
+        // Grabbing the characters we need to check
+        // initializing with a default value and mutable because of rust security, overwritten by loop
+        let mut zero = '-';
+        let mut two= '-';
+        let mut four= '-';
+        let mut six= '-';
+        let mut eight= '-';
+        // Assigning the signs we want to a variable.
+        for (i, char) in current_board.chars().enumerate() {
+            match i {
+                0 => zero = char,
+                2 => two = char,
+                4 => four = char,
+                6 => six = char,
+                8 => eight = char,
+                _ => continue
+            }
+        }
+        // Comparisons
+        // 0 - 4 - 8 Diagonal
+        if (zero == eight) && (zero == four){
+            match zero {
+                'X' => {
+                    self.set_status(XWon);
+                    return true;
+                }
+                'O' => {
+                    self.set_status(OWon);
+                    return true;
+                }
+                _ => {}
+            }
+        }
+        // 2 - 4 - 8 Diagonal
+        if (two == four) && (two == six) {
+            match two {
+                'X' => {
+                    self.set_status(XWon);
+                    return true;
+                }
+                'O' => {
+                    self.set_status(OWon);
+                    return true;
+                }
+                _ => {}
+            }
+        }
 
-        false
+        // Finally, if no win conditions are met and the function returned, checking for a draw
+        // If no slots are unfilled (-), and previous conditions did not return true, game is draw
+        for char in current_board.chars() {
+            if char == '-' {
+                // no win conditions met, unfilled slot, game still live
+                return false;
+            }
+        }
+        // Game has no empty slots and no win conditions have been met
+        self.set_status(DRAW);
+        true
     }
 }
 
