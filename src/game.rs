@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
+use crate::game::GameStatus::{OWon, XWon};
 
 pub enum GameStatus {
     RUNNING,
@@ -27,7 +28,6 @@ pub struct Game {
     /// The game status, read-only, the client can not POST or PUT this
     status: Option<String>
 }
-
 
 impl Game {
     /// Creates a new game instance
@@ -62,5 +62,73 @@ impl Game {
         &self.id
     }
 
+    pub fn board_is_empty(&self) -> bool {
+        let mut empty = true;
+        let current_board = &self.board.clone();
+        for c in current_board.chars() {
+            if c == 'O' || c == 'X' {
+                empty = false;
+                break
+            }
+        }
+        empty
+    }
 
+    pub fn check_win_conditions(&mut self) -> bool {
+        let board_rows: Vec<&str>;
+        let current_board = &self.board.clone();
+        let row1 = &current_board[0..3];
+        let row2 = &current_board[3..6];
+        let row3 = &current_board[6..];
+        board_rows = vec!(row1,row2,row3);
+
+        // temporary variables for logic use
+        let mut win_x: bool = false;
+        let mut win_o: bool = false;
+        let draw: bool = false;
+
+        // This is a bit slow but there's no clever way to take the character as an input
+        // since the game object stores it as a single string anyway and the function would
+        // just have to be duplicated on each type of move function.
+
+        // Checking rows for X
+        for rows in &board_rows {
+            win_x = true;
+            for char in rows.chars() {
+                // If all chars are X, win is true and loop won't break
+                if char != 'X' {
+                    win_x = false;
+                    break
+                }
+            }
+            // terminates with a win, X has won, break loop
+            if win_x {
+                let _ = &self.set_status(XWon);
+                return true;
+            }
+        }
+
+        // Checking rows for O
+        for rows in &board_rows {
+            win_o = true;
+            for char in rows.chars() {
+                // If all chars are O, win is true and loop won't break
+                if char != 'O' {
+                    win_o = false;
+                    break
+                }
+            }
+            // terminates with a win, O has won, break loop
+            if win_o {
+                let _ = &self.set_status(OWon);
+                return true;
+            }
+        }
+
+
+
+        false
+    }
 }
+
+
