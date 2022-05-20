@@ -27,6 +27,8 @@ pub struct Game {
     /// The game status, read-only, the client can not POST or PUT this
     status: Option<String>
 }
+
+
 impl Game {
     /// Creates a new game instance
     pub fn new(board: String) -> Game {

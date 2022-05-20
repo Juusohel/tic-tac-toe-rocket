@@ -16,8 +16,12 @@ fn index() -> &'static str {
 }
 
 #[get("/games")]
-fn all_games() -> &'static str {
-    "World?"
+fn all_games(game_list: &State<GameList>) -> Json<Vec<Game>> {
+    let lock = game_list.inner(); // Getting state
+    let guard = lock.list.lock().unwrap();
+    let all_games = guard.values().cloned().collect::<Vec<Game>>();
+
+    Json(all_games)
 }
 
 #[get("/games/<id>")]
@@ -58,6 +62,7 @@ fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>) ->
         // make computer move
         let new_board = submitted_new_game_state.get_board().clone();// generate new board based on moves TEMP
         current_game.set_board(new_board);
+        // Maybe set status to something if needed
         return Json(current_game.clone());
     }
     panic!("No game found")
