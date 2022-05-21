@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use rocket::response::Redirect;
 use rocket::State;
 use rocket::serde::json::Json;
-use crate::game::{Game, GameList};
+use crate::game::{Game, GameList, PlayerList};
 
 
 #[get("/")]
@@ -43,7 +43,7 @@ fn game_board(id: String, game_list: &State<GameList>) -> Json<Game> {
 
 
 #[put("/games/<id>" , format = "json", data = "<game>")]
-fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>) -> Json<Game> {
+fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, player_signs: &State<PlayerList>) -> Json<Game> {
     let lock = game_list.inner();
     let submitted_new_game_state = game;
     let current_game;
@@ -70,13 +70,15 @@ fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>) ->
 
 
 #[post("/games", format = "json", data = "<board>")]
-fn new_game(board: Json<Game> , game_list: &State<GameList>) -> Redirect {
+fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &State<PlayerList>) -> Redirect {
     // New getting board from the game object in the request
     let new_board = board.get_board().clone();
 
+    // Pulling player map in
+    let player_map = &player_signs.inner().player_map;
+
     // Creating new game object with the board
-    // TODO verify valid board
-    let try_new_game = Game::new(new_board);
+    let try_new_game = Game::new(new_board, player_signs);
     let new_game;
     match try_new_game {
         Ok(valid_game) => new_game = valid_game,
@@ -108,6 +110,7 @@ fn rocket() -> _ {
 
     rocket::build()
         .manage(GameList { list: Mutex::new(HashMap::new()) })
+        .manage(PlayerList { player_map: Mutex::new(HashMap::new())})
         .mount("/", routes![index])
         .mount("/", routes![all_games, game_board, new_game, put_player_move])
 

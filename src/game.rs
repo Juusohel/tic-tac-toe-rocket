@@ -12,6 +12,10 @@ pub enum GameStatus {
     DRAW,
 }
 
+pub struct PlayerList {
+    pub player_map: Mutex<HashMap<String, char>>
+}
+
 pub struct GameList{
     pub list: Mutex<HashMap<String,Game>>
 }
@@ -32,9 +36,20 @@ pub struct Game {
 
 impl Game {
     /// Creates a new game instance
-    ///
     /// Checks whether the board is an acceptable starting board and returns and error if not.
-    pub fn new(mut board: String) -> Result<Game, &'static str> {
+    ///
+    /// # Parameters
+    ///
+    /// board - Starting board
+    ///
+    /// player_list - The application's running list of players and their signs.
+    pub fn new(mut board: String, player_list: &PlayerList) -> Result<Game, &'static str> {
+        let player_move;
+        let mut lock = player_list.player_map.lock().unwrap(); // Bringing player map
+        let uuid = Some(Uuid::new_v4().to_string()); // Generating UUID
+        let uuid_copy = uuid.clone().unwrap(); // copy for map use, Safely unwrappable
+
+
         // Validating board size
         if board.len() != 9 {
             return Err("Unable to create game: invalid board!");
@@ -68,22 +83,35 @@ impl Game {
             let random = rng.gen_range(0..9); // Random number
             let sign_select = rng.gen_range(0..100);
             let first_move;
+
             // place random sign on random spot
             if (sign_select % 2) == 0 {
                 first_move = "O";
+                player_move = 'X';
             }
             else {
                 first_move = "X";
+                player_move = 'O';
             }
             // Making the first move by replacing a random tile with with the random sign.
             board.replace_range(random..random+1, first_move);
+        } else if (x_count == 1) && (o_count == 0) {
+            player_move = 'X' // If player has placed an X to start
+        } else {
+            player_move = 'O' // if board is not empty and not X then player placed O
         }
 
+
+        // Creating game object to be returned
         let game = Game {
-            id: Some(Uuid::new_v4().to_string()),
+            id: uuid,
         status: Some(String::from("RUNNING")),
         board
         };
+
+        // Adding player and game id to map
+        let _ = lock.insert(uuid_copy, player_move);
+
         Ok(game)
     }
 
@@ -110,17 +138,6 @@ impl Game {
         &self.id
     }
 
-    pub fn board_is_empty(&self) -> bool {
-        let mut empty = true;
-        let current_board = &self.board.clone();
-        for c in current_board.chars() {
-            if c == 'O' || c == 'X' {
-                empty = false;
-                break
-            }
-        }
-        empty
-    }
 
     pub fn check_win_conditions(&mut self) -> bool {
         let board_rows: Vec<&str>;
@@ -143,9 +160,9 @@ impl Game {
 
 
         // Checking rows for X
-        for rows in &board_rows {
+        for row in &board_rows {
             win_x = true;
-            for char in rows.chars() {
+            for char in row.chars() {
                 // If all chars are X, win is true and loop won't break
                 if char != 'X' {
                     win_x = false;
@@ -160,9 +177,9 @@ impl Game {
         }
 
         // Checking rows for O
-        for rows in &board_rows {
+        for row in &board_rows {
             win_o = true;
-            for char in rows.chars() {
+            for char in row.chars() {
                 // If all chars are O, win is true and loop won't break
                 if char != 'O' {
                     win_o = false;
@@ -267,9 +284,20 @@ impl Game {
     /// Accepts move by player, and makes a move in response
     /// Computer will make their own move randomly as implementing best move algorithm was out of scope
     /// for this.
-    pub fn make_move(&mut self, new_board: String) {
-        // checking if board is empty and computer
-
+    ///
+    /// This function assumes that the front-end won't allow old tiles to be completely overwritten as
+    /// tracking individual tiles state when the board is represented by a string is impractical,
+    pub fn make_move(&mut self, new_board: String) -> bool{
+        // check status running
+        // Check player move from the uuid.
+        // Count X O and -, make sure there's player sign is +1, - is -1, and non player move is the same
+        // when comparing the strings
+        // check win conditions, if move accepted
+        // make response move
+        // check win conditions
+        // return true for successful move
+        // false for failed or rejected. handle in the request
+        false
     }
 }
 
