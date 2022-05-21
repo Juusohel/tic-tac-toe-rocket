@@ -31,12 +31,42 @@ pub struct Game {
 
 impl Game {
     /// Creates a new game instance
-    pub fn new(board: String) -> Game {
-        Game {
+    ///
+    /// Checks whether the board is an acceptable starting board and returns and error if not.
+    pub fn new(board: String) -> Result<Game, &'static str> {
+        // Validating board size
+        if board.len() != 9 {
+            return Err("Unable to create game: invalid board!");
+        }
+        // Correct characters and count
+        let mut x_count= 0;
+        let mut o_count = 0;
+        for character in board.chars() {
+            match character {
+                'X' => {
+                    x_count += 1;
+                    continue
+                },
+                'O' => {
+                    o_count += 1;
+                    continue
+                },
+                '-' => continue,
+                _ => return Err("Unable to create game: invalid board!"),
+            }
+        }
+        // Checking if there's a valid number characters to start game
+        if ((x_count > 1) || (o_count > 1)) || (x_count == 1 && o_count == 1) {
+            return Err("Unable to create game: invalid starting board");
+        }
+
+
+        let game = Game {
             id: Some(Uuid::new_v4().to_string()),
         status: Some(String::from("RUNNING")),
         board
-        }
+        };
+        Ok(game)
     }
 
     pub fn set_board(&mut self, board: String) {

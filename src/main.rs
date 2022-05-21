@@ -76,7 +76,16 @@ fn new_game(board: Json<Game> , game_list: &State<GameList>) -> Redirect {
 
     // Creating new game object with the board
     // TODO verify valid board
-    let new_game = Game::new(new_board);
+    let try_new_game = Game::new(new_board);
+    let new_game;
+    match try_new_game {
+        Ok(valid_game) => new_game = valid_game,
+        Err(e) => {
+            println!("{}", e);
+            panic!("Temporary panic");
+        } // TODO respond with error code
+    }
+
     // Getting game id for use in map of games and url
     let id = new_game.get_id().clone().unwrap();
     let id_for_redirect = id.clone();
