@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
+use rand::Rng;
 use crate::game::GameStatus::{DRAW, OWon, XWon};
 
 pub enum GameStatus {
@@ -33,7 +34,7 @@ impl Game {
     /// Creates a new game instance
     ///
     /// Checks whether the board is an acceptable starting board and returns and error if not.
-    pub fn new(board: String) -> Result<Game, &'static str> {
+    pub fn new(mut board: String) -> Result<Game, &'static str> {
         // Validating board size
         if board.len() != 9 {
             return Err("Unable to create game: invalid board!");
@@ -60,6 +61,23 @@ impl Game {
             return Err("Unable to create game: invalid starting board");
         }
 
+        // If board started empty, make first move
+        // Implementing a best move algorithm was out of scope for this so a random slot will be used
+        if (x_count == 0) && (o_count == 0) {
+            let mut rng = rand::thread_rng();
+            let random = rng.gen_range(0..9); // Random number
+            let sign_select = rng.gen_range(0..100);
+            let first_move;
+            // place random sign on random spot
+            if (sign_select % 2) == 0 {
+                first_move = "O";
+            }
+            else {
+                first_move = "X";
+            }
+            // Making the first move by replacing a random tile with with the random sign.
+            board.replace_range(random..random+1, first_move);
+        }
 
         let game = Game {
             id: Some(Uuid::new_v4().to_string()),
@@ -244,6 +262,14 @@ impl Game {
         // Game has no empty slots and no win conditions have been met
         self.set_status(DRAW);
         true
+    }
+
+    /// Accepts move by player, and makes a move in response
+    /// Computer will make their own move randomly as implementing best move algorithm was out of scope
+    /// for this.
+    pub fn make_move(&mut self, new_board: String) {
+        // checking if board is empty and computer
+
     }
 }
 

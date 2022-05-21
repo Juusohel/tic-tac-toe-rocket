@@ -1082,6 +1082,7 @@ checksum = "c530c2b0d0bf8b69304b39fe2001993e267461948b890cd037d8ad4293fa1a0d"
 name = "sshtictactoerocket"
 version = "0.1.0"
 dependencies = [
+ "rand",
  "rocket",
  "serde",
  "uuid",
