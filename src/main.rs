@@ -1,30 +1,59 @@
 mod game;
+
 #[macro_use] extern crate rocket;
 
 use std::collections::HashMap;
+use std::io::Cursor;
 use std::sync::Mutex;
-use rocket::response::Redirect;
-use rocket::State;
+use rocket::http::{ContentType, Status};
+use rocket::response::{Redirect, Responder};
+use rocket::{Request, Response, response, State};
+use rocket::http::uri::Uri;
 use rocket::serde::json::Json;
+use rocket::serde::json::serde_json::json;
+use url::Url;
 use crate::game::{Game, GameList, PlayerList};
+
+/// Container for HTTP responses
+struct APIResponse<T> {
+    json: Json<T>,
+    status: Status,
+}
+
+// Response build structure modelled after https://stackoverflow.com/a/70563341
+
+impl <'r, T: serde::Serialize> Responder<'r, 'r> for APIResponse<T> {
+    fn respond_to(self, req: &Request) -> response::Result<'r> {
+        Response::build_from(self.json.respond_to(&req).unwrap())
+            .status(self.status)
+            .header(ContentType::JSON)
+            .ok()
+    }
+}
+
+
 
 
 #[get("/")]
 fn index() -> &'static str {
-    "Hello, world!"
+    "Nothing here go to /games"
 }
 
 #[get("/games")]
-fn all_games(game_list: &State<GameList>) -> Json<Vec<Game>> {
+fn all_games(game_list: &State<GameList>) -> APIResponse<Vec<Game>> {
     let lock = game_list.inner(); // Getting state
     let guard = lock.list.lock().unwrap();
     let all_games = guard.values().cloned().collect::<Vec<Game>>();
 
-    Json(all_games)
+    APIResponse {
+        json: Json(all_games),
+        status: Status::Ok,
+    }
+
 }
 
 #[get("/games/<id>")]
-fn game_board(id: String, game_list: &State<GameList>) -> Json<Game> {
+fn game_board(id: String, game_list: &State<GameList>) -> Result<APIResponse<Game>, Status> {
     let lock = game_list.inner(); // Getting state
     let current_game;
     if lock.list.lock().unwrap().contains_key(&*id) { // If id exists, get the game
@@ -33,17 +62,21 @@ fn game_board(id: String, game_list: &State<GameList>) -> Json<Game> {
         match map_entry {
             Some(game) => current_game = game,
             _ => {
-                panic!("unreachable");
+                return Err(Status::InternalServerError); // Should be unreachable;
             }
         }
-        return Json(current_game.clone());
+        return
+            Ok(APIResponse {
+            json: Json(current_game.clone()),
+            status: Status::Ok,
+        })
     }
-    panic!("Game doesn't exist");
+    Err(Status::NotFound)
 }
 
 
 #[put("/games/<id>" , format = "json", data = "<game>")]
-fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, player_signs: &State<PlayerList>) -> Json<Game> {
+fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, player_signs: &State<PlayerList>) -> Result<APIResponse<Game>, Status> {
     let game_list_lock = game_list.inner();
     let submitted_new_game_state = game;
     let current_game;
@@ -59,23 +92,26 @@ fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, pl
         match map_entry {
             Some(game) => current_game = game,
             _ => {
-                panic!("unreachable");
+                return Err(Status::InternalServerError);
             }
         }
         let new_board = submitted_new_game_state.get_board().clone();// generate new board based on moves TEMP
         if current_game.make_move(new_board, player_list_lock) == false {
-            panic!("Move failed temp panic");
+            return Err(Status::BadRequest);
         }
         // Maybe set status to something if needed
-        return Json(current_game.clone());
+        return Ok(
+            APIResponse {
+                json: Json(current_game.clone()),
+                status: Status::Ok
+        })
     }
-    panic!("No game found")
-
+    Err(Status::NotFound)
 }
 
 
 #[post("/games", format = "json", data = "<board>")]
-fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &State<PlayerList>) -> Redirect {
+fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &State<PlayerList>) -> Result<APIResponse<Url>, Status> {
     // New getting board from the game object in the request
     let new_board = board.get_board().clone();
 
@@ -89,8 +125,8 @@ fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &Stat
         Ok(valid_game) => new_game = valid_game,
         Err(e) => {
             println!("{}", e);
-            panic!("Temporary panic");
-        } // TODO respond with error code
+            return Err(Status::BadRequest)
+        }
     }
 
     // Getting game id for use in map of games and url
@@ -102,15 +138,46 @@ fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &Stat
     lock.list.lock().unwrap().insert(id,new_game);
 
     // redirecting to game
-    Redirect::to(format!("games/{}",id_for_redirect))
+    // Would be set to actual host adress in prod with env variable
+    let current_host ;
+    match Url::parse("http://127.0.0.1:8000/") {
+        Ok(host_url) => current_host = host_url,
+        Err(e) => {
+            println!("{}", e);
+            return Err(Status::InternalServerError);
+        }
+    }
+
+    let game_url;
+    match current_host.join(&*format!("../games/{}", id_for_redirect)) {
+        Ok( url) => game_url = url,
+        Err(e) => {
+            println!("{}", e);
+            return Err(Status::InternalServerError);
+        }
+    }
+    Ok(
+        APIResponse {
+            json: Json(game_url),
+            status: Status::Created
+        })
 }
 
 #[delete("/games/<id>")]
-fn delete_game(id: String, game_list: &State<GameList>) -> &str {
+fn delete_game(id: String, game_list: &State<GameList>) -> Result<APIResponse<Game>, Status> {
     let lock = game_list.inner();
     let mut list = lock.list.lock().unwrap();
-    let _delete = list.remove_entry(&*id);
-    "true"
+    let delete = list.remove(&*id);
+
+    match delete {
+        Some(game) => return Ok(
+            APIResponse {
+                json: Json(game),
+                status: Status::Ok
+        }),
+        None => return Err(Status::NotFound)
+    }
+
 }
 
 
