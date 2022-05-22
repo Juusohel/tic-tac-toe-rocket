@@ -5,24 +5,24 @@ where the board is represented by a string. Game objects
 are parsed and returned as JSON objects.
 
 
-###Requests
+### Requests
 * GET /games
   * returns an array of all active games
 * POST /games
   * Creates a new game using the board representation in the body of the request
     * Fails if board is not valid
   * Returns URL to the created game
-* GET /games/<id>
+* GET /games/`id`
   * Returns the game with the id parsed from the request
     * Fails if game does not exist
-* PUT /games/<id>
+* PUT /games/`id`
   * Updates the board with the move made by the player using the representation of the board in the body of the request.
     * Move is validated by the server and an updated game board is returned if the request successful
-* DELETE /games/<id>
+* DELETE /games/`id`
   * Deletes the specified game
     * Fails if game not found
 
-###Compiling and running
+### Compiling and running
 #### Prerequisites
 * Rust
   * Install on any platform with rustup
