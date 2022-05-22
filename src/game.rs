@@ -1,11 +1,11 @@
-use crate::game::GameStatus::{OWon, XWon, DRAW, RUNNING};
+use crate::game::GameStatus::{OWon, XWon, DRAW};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use uuid::Uuid;
 
-/// Used to keep track of game status
+/// Used to help keep track of game status
 pub enum GameStatus {
     RUNNING,
     XWon,
@@ -160,7 +160,7 @@ impl Game {
     }
 
     /// Gets the current status of the game
-    pub fn get_status(&self) -> &Option<String> {
+    pub fn _get_status(&self) -> &Option<String> {
         &self.status
     }
 
@@ -201,8 +201,8 @@ impl Game {
         board_rows = vec![row0, row1, row2];
 
         // temporary variables for logic use
-        let mut win_x: bool = false;
-        let mut win_o: bool = false;
+        let mut win_x: bool;
+        let mut win_o: bool;
 
         // This is a bit slow but there's no clever way to take the character as an input
         // since the game object stores it as a single string anyway and the function would
@@ -324,6 +324,7 @@ impl Game {
         for char in current_board.chars() {
             if char == '-' {
                 // no win conditions met, unfilled slot, game still live
+                self.set_status(GameStatus::RUNNING);
                 return false;
             }
         }
@@ -344,15 +345,15 @@ impl Game {
     /// * 'new_board' - A representation of the updated board with a yet to be validated move.
     ///
     /// * 'player_list' - Maintains a map of all players and their sign choice (X or O) in a mutex to handle async requests
-    pub fn make_move(&mut self, mut new_board: String, player_list: &PlayerList) -> bool {
+    pub fn make_move(&mut self, new_board: String, player_list: &PlayerList) -> bool {
         let game_status = self.status.clone().unwrap();
-        let mut lock = player_list.player_map.lock().unwrap(); // Bringing player map
+        let lock = player_list.player_map.lock().unwrap(); // Bringing player map
         let game_id = &self.id.clone().unwrap();
         let player_move = lock.get(game_id).unwrap(); // Function can't be called without the game existing, safe to unwrap
         let mut current_board = self.get_board().clone();
-        let mut computer_sign = "";
+        let computer_sign;
 
-        if game_status != String::from("RUNNING") {
+        if game_status != *"RUNNING" {
             // Game is over, don't accept a move
             return false;
         }
@@ -375,7 +376,7 @@ impl Game {
         let mut new_o = 0;
         let mut new_empty = 0;
 
-        for char in new_board.clone().chars() {
+        for char in new_board.chars() {
             match char {
                 'X' => new_x += 1,
                 'O' => new_o += 1,
@@ -413,7 +414,7 @@ impl Game {
         current_board = self.get_board().clone();
 
         // Checking if player move has fulfilled win conditions, if not make counter move.
-        if self.check_win_conditions() == false {
+        if !self.check_win_conditions() {
             // Making counter computer move
             let current_board = make_computer_move(current_board, computer_sign);
 

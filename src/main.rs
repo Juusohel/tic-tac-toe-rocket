@@ -4,14 +4,14 @@ mod game;
 extern crate rocket;
 
 use crate::game::{Game, GameList, PlayerList};
-use rocket::http::uri::Uri;
+
 use rocket::http::{ContentType, Status};
-use rocket::response::{Redirect, Responder};
-use rocket::serde::json::serde_json::json;
+use rocket::response::Responder;
+
 use rocket::serde::json::Json;
 use rocket::{response, Request, Response, State};
 use std::collections::HashMap;
-use std::io::Cursor;
+
 use std::sync::Mutex;
 use url::Url;
 
@@ -28,7 +28,7 @@ struct APIResponse<T> {
 impl<'r, T: serde::Serialize> Responder<'r, 'r> for APIResponse<T> {
     /// Builds response
     fn respond_to(self, req: &Request) -> response::Result<'r> {
-        Response::build_from(self.json.respond_to(&req).unwrap())
+        Response::build_from(self.json.respond_to(req).unwrap())
             .status(self.status)
             .header(ContentType::JSON)
             .ok()
@@ -138,7 +138,7 @@ fn put_player_move(
             }
         }
         let new_board = submitted_new_game_state.get_board().clone(); // generate new board based on moves TEMP
-        if current_game.make_move(new_board, player_list_lock) == false {
+        if !current_game.make_move(new_board, player_list_lock) {
             return Err(Status::BadRequest);
         }
         // Maybe set status to something if needed
@@ -174,7 +174,7 @@ fn new_game(
     let new_board = board.get_board().clone();
 
     // Pulling player map in
-    let player_map = &player_signs.inner().player_map;
+    let _player_map = &player_signs.inner().player_map;
 
     // Creating new game object with the board
     let try_new_game = Game::new(new_board, player_signs);
@@ -237,13 +237,11 @@ fn delete_game(id: String, game_list: &State<GameList>) -> Result<APIResponse<Ga
     let delete = list.remove(&*id);
 
     match delete {
-        Some(game) => {
-            return Ok(APIResponse {
-                json: Json(game),
-                status: Status::Ok,
-            })
-        }
-        None => return Err(Status::NotFound),
+        Some(game) => Ok(APIResponse {
+            json: Json(game),
+            status: Status::Ok,
+        }),
+        None => Err(Status::NotFound),
     }
 }
 
