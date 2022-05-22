@@ -105,6 +105,14 @@ fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &Stat
     Redirect::to(format!("games/{}",id_for_redirect))
 }
 
+#[delete("/games/<id>")]
+fn delete_game(id: String, game_list: &State<GameList>) -> &str {
+    let lock = game_list.inner();
+    let mut list = lock.list.lock().unwrap();
+    let _delete = list.remove_entry(&*id);
+    "true"
+}
+
 
 
 #[launch]
@@ -117,7 +125,7 @@ fn rocket() -> _ {
         .manage(GameList { list: Mutex::new(HashMap::new()) })
         .manage(PlayerList { player_map: Mutex::new(HashMap::new())})
         .mount("/", routes![index])
-        .mount("/", routes![all_games, game_board, new_game, put_player_move])
+        .mount("/", routes![all_games, game_board, new_game, put_player_move, delete_game])
 
 
 }
