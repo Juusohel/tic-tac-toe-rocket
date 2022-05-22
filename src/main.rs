@@ -1,18 +1,19 @@
 mod game;
 
-#[macro_use] extern crate rocket;
+#[macro_use]
+extern crate rocket;
 
+use crate::game::{Game, GameList, PlayerList};
+use rocket::http::uri::Uri;
+use rocket::http::{ContentType, Status};
+use rocket::response::{Redirect, Responder};
+use rocket::serde::json::serde_json::json;
+use rocket::serde::json::Json;
+use rocket::{response, Request, Response, State};
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Mutex;
-use rocket::http::{ContentType, Status};
-use rocket::response::{Redirect, Responder};
-use rocket::{Request, Response, response, State};
-use rocket::http::uri::Uri;
-use rocket::serde::json::Json;
-use rocket::serde::json::serde_json::json;
 use url::Url;
-use crate::game::{Game, GameList, PlayerList};
 
 /// Container for HTTP responses
 struct APIResponse<T> {
@@ -24,7 +25,7 @@ struct APIResponse<T> {
 
 // Response build structure modelled after https://stackoverflow.com/a/70563341
 
-impl <'r, T: serde::Serialize> Responder<'r, 'r> for APIResponse<T> {
+impl<'r, T: serde::Serialize> Responder<'r, 'r> for APIResponse<T> {
     /// Builds response
     fn respond_to(self, req: &Request) -> response::Result<'r> {
         Response::build_from(self.json.respond_to(&req).unwrap())
@@ -34,8 +35,6 @@ impl <'r, T: serde::Serialize> Responder<'r, 'r> for APIResponse<T> {
     }
 }
 
-
-
 /// Base index response
 ///
 /// Unused in API context but left here to avoid not having any kind of index
@@ -43,7 +42,6 @@ impl <'r, T: serde::Serialize> Responder<'r, 'r> for APIResponse<T> {
 fn index() -> &'static str {
     "Nothing here go to /games"
 }
-
 
 /// Gets a list of all games and returns them as as an array
 ///
@@ -62,7 +60,6 @@ fn all_games(game_list: &State<GameList>) -> APIResponse<Vec<Game>> {
         json: Json(all_games),
         status: Status::Ok,
     }
-
 }
 
 /// Returns the current game object based on its ID which is parsed from the URL.
@@ -79,7 +76,8 @@ fn all_games(game_list: &State<GameList>) -> APIResponse<Vec<Game>> {
 fn game_board(id: String, game_list: &State<GameList>) -> Result<APIResponse<Game>, Status> {
     let lock = game_list.inner(); // Getting state
     let current_game;
-    if lock.list.lock().unwrap().contains_key(&*id) { // If id exists, get the game
+    if lock.list.lock().unwrap().contains_key(&*id) {
+        // If id exists, get the game
         let guard = lock.list.lock().unwrap();
         let map_entry = guard.get(&*id);
         match map_entry {
@@ -88,11 +86,10 @@ fn game_board(id: String, game_list: &State<GameList>) -> Result<APIResponse<Gam
                 return Err(Status::InternalServerError); // Should be unreachable;
             }
         }
-        return
-            Ok(APIResponse {
+        return Ok(APIResponse {
             json: Json(current_game.clone()),
             status: Status::Ok,
-        })
+        });
     }
     Err(Status::NotFound)
 }
@@ -116,14 +113,18 @@ fn game_board(id: String, game_list: &State<GameList>) -> Result<APIResponse<Gam
 ///
 /// # Panics
 /// May panic if the the function is unable to open up the mutex
-#[put("/games/<id>" , format = "json", data = "<game>")]
-fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, player_signs: &State<PlayerList>) -> Result<APIResponse<Game>, Status> {
+#[put("/games/<id>", format = "json", data = "<game>")]
+fn put_player_move(
+    id: String,
+    game_list: &State<GameList>,
+    game: Json<Game>,
+    player_signs: &State<PlayerList>,
+) -> Result<APIResponse<Game>, Status> {
     let game_list_lock = game_list.inner();
     let submitted_new_game_state = game;
     let current_game;
 
     let player_list_lock = player_signs.inner();
-
 
     // if game exists
     if game_list_lock.list.lock().unwrap().contains_key(&*id) {
@@ -136,20 +137,18 @@ fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, pl
                 return Err(Status::InternalServerError);
             }
         }
-        let new_board = submitted_new_game_state.get_board().clone();// generate new board based on moves TEMP
+        let new_board = submitted_new_game_state.get_board().clone(); // generate new board based on moves TEMP
         if current_game.make_move(new_board, player_list_lock) == false {
             return Err(Status::BadRequest);
         }
         // Maybe set status to something if needed
-        return Ok(
-            APIResponse {
-                json: Json(current_game.clone()),
-                status: Status::Ok
-        })
+        return Ok(APIResponse {
+            json: Json(current_game.clone()),
+            status: Status::Ok,
+        });
     }
     Err(Status::NotFound)
 }
-
 
 /// Creates a new game with a board as defined in the POST request payload
 ///
@@ -166,7 +165,11 @@ fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, pl
 /// # Panics
 /// May panic if the the function is unable to open up the mutex
 #[post("/games", format = "json", data = "<board>")]
-fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &State<PlayerList>) -> Result<APIResponse<Url>, Status> {
+fn new_game(
+    board: Json<Game>,
+    game_list: &State<GameList>,
+    player_signs: &State<PlayerList>,
+) -> Result<APIResponse<Url>, Status> {
     // New getting board from the game object in the request
     let new_board = board.get_board().clone();
 
@@ -180,7 +183,7 @@ fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &Stat
         Ok(valid_game) => new_game = valid_game,
         Err(e) => {
             println!("{}", e);
-            return Err(Status::BadRequest)
+            return Err(Status::BadRequest);
         }
     }
 
@@ -190,11 +193,11 @@ fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &Stat
 
     // Adding game to map
     let lock = game_list.inner();
-    lock.list.lock().unwrap().insert(id,new_game);
+    lock.list.lock().unwrap().insert(id, new_game);
 
     // redirecting to game
     // Would be set to actual host adress in prod with env variable
-    let current_host ;
+    let current_host;
     match Url::parse("http://127.0.0.1:8000/") {
         Ok(host_url) => current_host = host_url,
         Err(e) => {
@@ -205,19 +208,17 @@ fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &Stat
 
     let game_url;
     match current_host.join(&*format!("../games/{}", id_for_redirect)) {
-        Ok( url) => game_url = url,
+        Ok(url) => game_url = url,
         Err(e) => {
             println!("{}", e);
             return Err(Status::InternalServerError);
         }
     }
-    Ok(
-        APIResponse {
-            json: Json(game_url),
-            status: Status::Created
-        })
+    Ok(APIResponse {
+        json: Json(game_url),
+        status: Status::Created,
+    })
 }
-
 
 /// Deletes a game from the list of games and returns it.
 ///
@@ -236,28 +237,35 @@ fn delete_game(id: String, game_list: &State<GameList>) -> Result<APIResponse<Ga
     let delete = list.remove(&*id);
 
     match delete {
-        Some(game) => return Ok(
-            APIResponse {
+        Some(game) => {
+            return Ok(APIResponse {
                 json: Json(game),
-                status: Status::Ok
-        }),
-        None => return Err(Status::NotFound)
+                status: Status::Ok,
+            })
+        }
+        None => return Err(Status::NotFound),
     }
-
 }
-
-
 
 #[launch]
 fn rocket() -> _ {
-
     // Launching rocket
     rocket::build()
-        .manage(GameList { list: Mutex::new(HashMap::new()) })
-        .manage(PlayerList { player_map: Mutex::new(HashMap::new())})
+        .manage(GameList {
+            list: Mutex::new(HashMap::new()),
+        })
+        .manage(PlayerList {
+            player_map: Mutex::new(HashMap::new()),
+        })
         .mount("/", routes![index])
-        .mount("/", routes![all_games, game_board, new_game, put_player_move, delete_game])
-
-
+        .mount(
+            "/",
+            routes![
+                all_games,
+                game_board,
+                new_game,
+                put_player_move,
+                delete_game
+            ],
+        )
 }
-

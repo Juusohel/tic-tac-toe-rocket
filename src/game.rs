@@ -1,9 +1,9 @@
+use crate::game::GameStatus::{OWon, XWon, DRAW, RUNNING};
+use rand::Rng;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use uuid::Uuid;
-use serde::{Serialize, Deserialize};
-use rand::Rng;
-use crate::game::GameStatus::{DRAW, OWon, RUNNING, XWon};
 
 /// Used to keep track of game status
 pub enum GameStatus {
@@ -20,7 +20,7 @@ pub enum GameStatus {
 ///
 /// The HashMap is wrapped in a Mutex to allow it to be handled asynchronously by all functions that need it.
 pub struct PlayerList {
-    pub player_map: Mutex<HashMap<String, char>>
+    pub player_map: Mutex<HashMap<String, char>>,
 }
 
 /// Container for a HashMap of games by ID.
@@ -28,17 +28,14 @@ pub struct PlayerList {
 /// This is used as the active storage for the program. Scalable in reasonable amounts considering the
 /// performance of rust but a database would be preferable for a large scale deployment.
 /// Database would be added complexity in anything but the largest deployments.
-pub struct GameList{
-    pub list: Mutex<HashMap<String,Game>>
+pub struct GameList {
+    pub list: Mutex<HashMap<String, Game>>,
 }
-
 
 /// Struct that represents the game object that stores all the information about the game and
 /// handles all the logic within its functions. Derives traits to allow it to be converted to json
 /// and cloned
-#[derive(Clone)]
-#[derive(Serialize)]
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Game {
     /// The game's UUID, read-only. Generated on object creation.
     id: Option<String>,
@@ -47,7 +44,7 @@ pub struct Game {
     board: String,
 
     /// The game status
-    status: Option<String>
+    status: Option<String>,
 }
 
 impl Game {
@@ -77,24 +74,23 @@ impl Game {
         let uuid = Some(Uuid::new_v4().to_string()); // Generating UUID
         let uuid_copy = uuid.clone().unwrap(); // copy for map use, Safely unwrappable
 
-
         // Validating board size
         if board.len() != 9 {
             return Err("Unable to create game: invalid board!");
         }
         // Correct characters and count
-        let mut x_count= 0;
+        let mut x_count = 0;
         let mut o_count = 0;
         for character in board.chars() {
             match character {
                 'X' => {
                     x_count += 1;
-                    continue
-                },
+                    continue;
+                }
                 'O' => {
                     o_count += 1;
-                    continue
-                },
+                    continue;
+                }
                 '-' => continue,
                 _ => return Err("Unable to create game: invalid board!"),
             }
@@ -116,19 +112,17 @@ impl Game {
             if (sign_select % 2) == 0 {
                 first_move = "O";
                 player_move = 'X';
-            }
-            else {
+            } else {
                 first_move = "X";
                 player_move = 'O';
             }
             // Making the first move by replacing a random tile with with the random sign.
-            board.replace_range(random..random+1, first_move);
+            board.replace_range(random..random + 1, first_move);
         } else if (x_count == 1) && (o_count == 0) {
             player_move = 'X'; // If player has placed an X to start
 
             // Computer response move
             board = make_computer_move(board, "O");
-
         } else {
             player_move = 'O'; // if board is not empty and not X then player placed O
 
@@ -136,12 +130,11 @@ impl Game {
             board = make_computer_move(board, "X");
         }
 
-
         // Creating game object to be returned
         let game = Game {
             id: uuid,
-        status: Some(String::from("RUNNING")),
-        board
+            status: Some(String::from("RUNNING")),
+            board,
         };
 
         // Adding player and game id to map
@@ -167,7 +160,7 @@ impl Game {
     }
 
     /// Gets the current status of the game
-    pub fn get_status(&self) -> &Option<String>  {
+    pub fn get_status(&self) -> &Option<String> {
         &self.status
     }
 
@@ -181,7 +174,7 @@ impl Game {
             GameStatus::RUNNING => self.status = Some(String::from("RUNNING")),
             GameStatus::XWon => self.status = Some(String::from("X_WON")),
             GameStatus::OWon => self.status = Some(String::from("O_WON")),
-            GameStatus::DRAW => self.status = Some(String::from("DRAW"))
+            GameStatus::DRAW => self.status = Some(String::from("DRAW")),
         }
     }
 
@@ -189,7 +182,6 @@ impl Game {
     pub fn get_id(&self) -> &Option<String> {
         &self.id
     }
-
 
     /// Checks the board to determine if any win conditions are met.
     /// If win conditions are met, the status of the game will be updated.
@@ -206,19 +198,17 @@ impl Game {
         let row0 = &current_board[0..3];
         let row1 = &current_board[3..6];
         let row2 = &current_board[6..];
-        board_rows = vec!(row0, row1, row2);
+        board_rows = vec![row0, row1, row2];
 
         // temporary variables for logic use
         let mut win_x: bool = false;
         let mut win_o: bool = false;
-
 
         // This is a bit slow but there's no clever way to take the character as an input
         // since the game object stores it as a single string anyway and the function would
         // just have to be duplicated on each type of move function.
         // That and since the board is 9 characters long, the impact is negligible even on low power devices
         // Despite appearing rather convoluted, should only be O(5n)
-
 
         // Checking rows for X
         for row in &board_rows {
@@ -227,7 +217,7 @@ impl Game {
                 // If all chars are X, win is true and loop won't break
                 if char != 'X' {
                     win_x = false;
-                    break
+                    break;
                 }
             }
             // terminates with a win, X has won, break loop
@@ -244,7 +234,7 @@ impl Game {
                 // If all chars are O, win is true and loop won't break
                 if char != 'O' {
                     win_o = false;
-                    break
+                    break;
                 }
             }
             // terminates with a win, O has won, break loop
@@ -265,17 +255,17 @@ impl Game {
             let (r1_char, r2_char) = r12;
 
             // If all characters are the same, check which one they are and behave accordingly
-            if (r0_char == r1_char) && (r2_char == r0_char)  {
+            if (r0_char == r1_char) && (r2_char == r0_char) {
                 match r0_char {
                     'X' => {
                         self.set_status(XWon);
-                        return true
+                        return true;
                     }
                     'O' => {
                         self.set_status(OWon);
-                        return true
+                        return true;
                     }
-                    _ => continue
+                    _ => continue,
                 }
             }
         }
@@ -284,10 +274,10 @@ impl Game {
         // Grabbing the characters we need to check
         // initializing with a default value and mutable because of rust security, overwritten by loop
         let mut zero = '-';
-        let mut two= '-';
-        let mut four= '-';
-        let mut six= '-';
-        let mut eight= '-';
+        let mut two = '-';
+        let mut four = '-';
+        let mut six = '-';
+        let mut eight = '-';
         // Assigning the signs we want to a variable.
         for (i, char) in current_board.chars().enumerate() {
             match i {
@@ -296,12 +286,12 @@ impl Game {
                 4 => four = char,
                 6 => six = char,
                 8 => eight = char,
-                _ => continue
+                _ => continue,
             }
         }
         // Comparisons
         // 0 - 4 - 8 Diagonal
-        if (zero == eight) && (zero == four){
+        if (zero == eight) && (zero == four) {
             match zero {
                 'X' => {
                     self.set_status(XWon);
@@ -354,14 +344,13 @@ impl Game {
     /// * 'new_board' - A representation of the updated board with a yet to be validated move.
     ///
     /// * 'player_list' - Maintains a map of all players and their sign choice (X or O) in a mutex to handle async requests
-    pub fn make_move(&mut self, mut new_board: String, player_list: &PlayerList) -> bool{
-
+    pub fn make_move(&mut self, mut new_board: String, player_list: &PlayerList) -> bool {
         let game_status = self.status.clone().unwrap();
         let mut lock = player_list.player_map.lock().unwrap(); // Bringing player map
         let game_id = &self.id.clone().unwrap();
         let player_move = lock.get(game_id).unwrap(); // Function can't be called without the game existing, safe to unwrap
         let mut current_board = self.get_board().clone();
-        let mut computer_sign= "";
+        let mut computer_sign = "";
 
         if game_status != String::from("RUNNING") {
             // Game is over, don't accept a move
@@ -371,14 +360,14 @@ impl Game {
         // Counting current characters
         let mut current_x = 0;
         let mut current_o = 0;
-        let mut current_empty= 0;
+        let mut current_empty = 0;
 
         for char in current_board.chars() {
             match char {
                 'X' => current_x += 1,
                 'O' => current_o += 1,
                 '-' => current_empty += 1,
-                _ => panic!("Current board is not valid") // Current board should never be invalid at this stage
+                _ => panic!("Current board is not valid"), // Current board should never be invalid at this stage
             }
         }
         // Counting new board signs
@@ -391,7 +380,7 @@ impl Game {
                 'X' => new_x += 1,
                 'O' => new_o += 1,
                 '-' => new_empty += 1,
-                _ => return false // New move contains an invalid board, move not accepted
+                _ => return false, // New move contains an invalid board, move not accepted
             }
         }
 
@@ -399,20 +388,23 @@ impl Game {
         match player_move {
             'X' => {
                 computer_sign = "O";
-                if !(((new_x - current_x) == 1) && (((new_o - current_o) ==  0) && ((current_empty - new_empty) == 1))) {
+                if !(((new_x - current_x) == 1)
+                    && (((new_o - current_o) == 0) && ((current_empty - new_empty) == 1)))
+                {
                     // If conditions above are not true, the move is not valid and rejected.
                     return false;
                 }
             }
             'O' => {
                 computer_sign = "X";
-                if !(((new_o - current_o) == 1) && (((new_x - current_x) ==  0) && ((current_empty - new_empty) == 1))) {
+                if !(((new_o - current_o) == 1)
+                    && (((new_x - current_x) == 0) && ((current_empty - new_empty) == 1)))
+                {
                     // Same as above but with other player sign
                     return false;
                 }
-
             }
-            _ => panic!("Player move not set") // Should be impossible, appropriate to panic
+            _ => panic!("Player move not set"), // Should be impossible, appropriate to panic
         }
         // If move is valid, set the updated board to be the current board
         self.set_board(new_board);
@@ -422,7 +414,6 @@ impl Game {
 
         // Checking if player move has fulfilled win conditions, if not make counter move.
         if self.check_win_conditions() == false {
-
             // Making counter computer move
             let current_board = make_computer_move(current_board, computer_sign);
 
@@ -435,7 +426,6 @@ impl Game {
 
         true
     }
-
 }
 
 /// Makes a computer move. This function only updates the board and does not check being used
@@ -452,7 +442,7 @@ impl Game {
 fn make_computer_move(mut current_board: String, computer_sign: &str) -> String {
     // Checks which positions are open ('-') in the string, and places their indexes into an array
     // A random number in that range is then generated and the move made in that slot
-    let mut empty_spaces = vec!();
+    let mut empty_spaces = vec![];
     for (i, char) in current_board.clone().chars().enumerate() {
         if char == '-' {
             empty_spaces.push(i);
@@ -465,10 +455,11 @@ fn make_computer_move(mut current_board: String, computer_sign: &str) -> String 
 
     // Making computer move
     let index_to_be_replaced = empty_spaces[random_choice];
-    current_board.replace_range(index_to_be_replaced..index_to_be_replaced+1, computer_sign);
+    current_board.replace_range(
+        index_to_be_replaced..index_to_be_replaced + 1,
+        computer_sign,
+    );
 
     //returning updated board
     current_board
 }
-
-
