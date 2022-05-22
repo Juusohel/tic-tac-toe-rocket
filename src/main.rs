@@ -16,13 +16,16 @@ use crate::game::{Game, GameList, PlayerList};
 
 /// Container for HTTP responses
 struct APIResponse<T> {
+    /// Json payload for the response
     json: Json<T>,
+    /// HTTP Response status code
     status: Status,
 }
 
 // Response build structure modelled after https://stackoverflow.com/a/70563341
 
 impl <'r, T: serde::Serialize> Responder<'r, 'r> for APIResponse<T> {
+    /// Builds response
     fn respond_to(self, req: &Request) -> response::Result<'r> {
         Response::build_from(self.json.respond_to(&req).unwrap())
             .status(self.status)
@@ -33,12 +36,22 @@ impl <'r, T: serde::Serialize> Responder<'r, 'r> for APIResponse<T> {
 
 
 
-
+/// Base index response
+///
+/// Unused in API context but left here to avoid not having any kind of index
 #[get("/")]
 fn index() -> &'static str {
     "Nothing here go to /games"
 }
 
+
+/// Gets a list of all games and returns them as as an array
+///
+///
+/// # Arguments
+///
+/// * 'game_list' - Maintains a map of all games in a mutex to handle asynchronous requests
+///
 #[get("/games")]
 fn all_games(game_list: &State<GameList>) -> APIResponse<Vec<Game>> {
     let lock = game_list.inner(); // Getting state
@@ -52,6 +65,16 @@ fn all_games(game_list: &State<GameList>) -> APIResponse<Vec<Game>> {
 
 }
 
+/// Returns the current game object based on its ID which is parsed from the URL.
+///
+/// # Arguments
+///
+/// * 'id' - Parsed from the URL, ID of the game
+///
+/// * 'game_list' - Maintains a map of all games in a mutex to handle asynchronous requests
+///
+/// # Panics
+/// May panic if the the function is unable to open up the mutex
 #[get("/games/<id>")]
 fn game_board(id: String, game_list: &State<GameList>) -> Result<APIResponse<Game>, Status> {
     let lock = game_list.inner(); // Getting state
@@ -74,7 +97,25 @@ fn game_board(id: String, game_list: &State<GameList>) -> Result<APIResponse<Gam
     Err(Status::NotFound)
 }
 
-
+/// Handles the put request to make a new move to a specified game
+///
+/// Gets the active game by id parsed from the URL and tries to make the user defined moved
+/// which is the payload in the PUT request.
+///
+/// Returns the updated game board with the computer's response move updated to the board
+///
+/// # Arguments
+///
+/// * 'id' - Parsed from the URL, ID of the game
+///
+/// * 'game_list' - Maintains a map of all games in a mutex to handle asynchronous requests
+///
+/// * 'game' - Payload in the PUT request, contains to game object with an updated board. (Player move)
+///
+/// * 'player_signs' - Maintains a map of all players and their sign choice (X or O) in a mutex to handle async requests
+///
+/// # Panics
+/// May panic if the the function is unable to open up the mutex
 #[put("/games/<id>" , format = "json", data = "<game>")]
 fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, player_signs: &State<PlayerList>) -> Result<APIResponse<Game>, Status> {
     let game_list_lock = game_list.inner();
@@ -110,6 +151,20 @@ fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, pl
 }
 
 
+/// Creates a new game with a board as defined in the POST request payload
+///
+/// The handler will validate a user defined first move and provide a response move from the computer
+///
+/// # Arguments
+///
+/// * 'board' - POST request payload, contains a representation of the game board
+///
+/// * 'game_list' - Maintains a map of all games in a mutex to handle asynchronous requests
+///
+/// * 'player_signs' - Maintains a map of all players and their sign choice (X or O) in a mutex to handle async requests
+///
+/// # Panics
+/// May panic if the the function is unable to open up the mutex
 #[post("/games", format = "json", data = "<board>")]
 fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &State<PlayerList>) -> Result<APIResponse<Url>, Status> {
     // New getting board from the game object in the request
@@ -163,6 +218,17 @@ fn new_game(board: Json<Game> , game_list: &State<GameList>, player_signs: &Stat
         })
 }
 
+
+/// Deletes a game from the list of games and returns it.
+///
+/// # Arguments
+///
+/// * 'id' - Parsed from the URL, ID of the game
+///
+/// * 'game_list' - Maintains a map of all games in a mutex to handle asynchronous requests
+///
+/// # Panics
+/// May panic if the the function is unable to open up the mutex
 #[delete("/games/<id>")]
 fn delete_game(id: String, game_list: &State<GameList>) -> Result<APIResponse<Game>, Status> {
     let lock = game_list.inner();
@@ -185,9 +251,7 @@ fn delete_game(id: String, game_list: &State<GameList>) -> Result<APIResponse<Ga
 #[launch]
 fn rocket() -> _ {
 
-
-
-
+    // Launching rocket
     rocket::build()
         .manage(GameList { list: Mutex::new(HashMap::new()) })
         .manage(PlayerList { player_map: Mutex::new(HashMap::new())})
