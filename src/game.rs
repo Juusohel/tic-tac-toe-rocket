@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 use rand::Rng;
-use crate::game::GameStatus::{DRAW, OWon, XWon};
+use crate::game::GameStatus::{DRAW, OWon, RUNNING, XWon};
 
 pub enum GameStatus {
     RUNNING,
@@ -96,9 +96,16 @@ impl Game {
             // Making the first move by replacing a random tile with with the random sign.
             board.replace_range(random..random+1, first_move);
         } else if (x_count == 1) && (o_count == 0) {
-            player_move = 'X' // If player has placed an X to start
+            player_move = 'X'; // If player has placed an X to start
+
+            // Computer response move
+            board = make_computer_move(board, "O");
+
         } else {
-            player_move = 'O' // if board is not empty and not X then player placed O
+            player_move = 'O'; // if board is not empty and not X then player placed O
+
+            // Computer response move
+            board = make_computer_move(board, "X");
         }
 
 
@@ -125,7 +132,7 @@ impl Game {
     pub fn get_status(&self) -> &Option<String>  {
         &self.status
     }
-    pub fn set_status(&mut self, game_status: GameStatus) {
+    fn set_status(&mut self, game_status: GameStatus) {
         match game_status {
             GameStatus::RUNNING => self.status = Some(String::from("RUNNING")),
             GameStatus::XWon => self.status = Some(String::from("X_WON")),
@@ -287,7 +294,7 @@ impl Game {
     ///
     /// This function assumes that the front-end won't allow old tiles to be completely overwritten as
     /// tracking individual tiles state when the board is represented by a string is impractical,
-    pub fn make_move(&mut self, new_board: String) -> bool{
+    pub fn make_move(&mut self, mut new_board: String, player_list: &PlayerList) -> bool{
         // check status running
         // Check player move from the uuid.
         // Count X O and -, make sure there's player sign is +1, - is -1, and non player move is the same
@@ -297,8 +304,116 @@ impl Game {
         // check win conditions
         // return true for successful move
         // false for failed or rejected. handle in the request
-        false
+
+        let game_status = self.status.clone().unwrap();
+        let mut lock = player_list.player_map.lock().unwrap(); // Bringing player map
+        let game_id = &self.id.clone().unwrap();
+        let player_move = lock.get(game_id).unwrap(); // Function can't be called without the game existing, safe to unwrap
+        let mut current_board = self.get_board().clone();
+        let mut computer_sign= "";
+
+        if game_status != String::from("RUNNING") {
+            // Game is over, don't accept a move
+            return false;
+        }
+
+        // Counting current signs
+        let mut current_x = 0;
+        let mut current_o = 0;
+        let mut current_empty= 0;
+
+        for char in current_board.chars() {
+            match char {
+                'X' => current_x += 1,
+                'O' => current_o += 1,
+                '-' => current_empty += 1,
+                _ => panic!("Current board is not valid") // Current board should never be invalid at this stage
+            }
+        }
+        // counting new board signs
+        let mut new_x = 0;
+        let mut new_o = 0;
+        let mut new_empty = 0;
+
+        for char in new_board.clone().chars() {
+            match char {
+                'X' => new_x += 1,
+                'O' => new_o += 1,
+                '-' => new_empty += 1,
+                _ => return false // New move contains an invalid board, move not accepted
+            }
+        }
+
+        // Comparing boards to check validity of the move and setting computer sign
+        match player_move {
+            'X' => {
+                computer_sign = "O";
+                if !(((new_x - current_x) == 1) && (((new_o - current_o) ==  0) && ((current_empty - new_empty) == 1))) {
+                    // If conditions above are not true, the move is not valid and rejected.
+                    return false;
+                }
+            }
+            'O' => {
+                computer_sign = "X";
+                if !(((new_o - current_o) == 1) && (((new_x - current_x) ==  0) && ((current_empty - new_empty) == 1))) {
+                    // Same as above but with other player sign
+                    return false;
+                }
+
+            }
+            _ => panic!("Player move not set") // Should be impossible, appropriate to panic
+        }
+        // If move is valid, set the updated board to be the current board
+        self.set_board(new_board);
+
+        // update current board variable
+        current_board = self.get_board().clone();
+
+        // Checking if player move has fulfilled win conditions, if not make counter move.
+        if self.check_win_conditions() == false {
+            // Making counter computer move
+
+            let current_board = make_computer_move(current_board, computer_sign);
+
+            // Updating board with computer move
+            self.set_board(current_board);
+        }
+
+        // Checking win conditions after computer move
+        self.check_win_conditions();
+
+        true
     }
+
+}
+
+/// Makes a computer move. This function only updates the board and does not check being used
+/// out of turn etc. Making this function public could break game logic.
+///
+/// Checks which positions are open ('-') in the string, and places their indexes into an array
+/// A random number in that range is then generated and the move made in that slot
+///
+/// Returns updated board
+fn make_computer_move(mut current_board: String, computer_sign: &str) -> String {
+    // Checks which positions are open ('-') in the string, and places their indexes into an array
+    // A random number in that range is then generated and the move made in that slot
+    let mut empty_spaces = vec!();
+    for (i, char) in current_board.clone().chars().enumerate() {
+        if char == '-' {
+            empty_spaces.push(i);
+        }
+    }
+    // Generating random number to choose the slot to make computer move
+    let mut rng = rand::thread_rng();
+    let random_choice = rng.gen_range(0..empty_spaces.len());
+
+    // Making computer move
+    let index_to_be_replaced = empty_spaces[random_choice];
+    current_board.replace_range(index_to_be_replaced..index_to_be_replaced+1, computer_sign);
+
+    //returning updated board
+    current_board
+
 }
 
 

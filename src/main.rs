@@ -44,11 +44,16 @@ fn game_board(id: String, game_list: &State<GameList>) -> Json<Game> {
 
 #[put("/games/<id>" , format = "json", data = "<game>")]
 fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, player_signs: &State<PlayerList>) -> Json<Game> {
-    let lock = game_list.inner();
+    let game_list_lock = game_list.inner();
     let submitted_new_game_state = game;
     let current_game;
-    if lock.list.lock().unwrap().contains_key(&*id) {
-        let mut guard = lock.list.lock().unwrap();
+
+    let player_list_lock = player_signs.inner();
+
+
+    // if game exists
+    if game_list_lock.list.lock().unwrap().contains_key(&*id) {
+        let mut guard = game_list_lock.list.lock().unwrap();
         let map_entry = guard.get_mut(&*id);
 
         match map_entry {
@@ -57,10 +62,10 @@ fn put_player_move(id: String, game_list: &State<GameList>, game: Json<Game>, pl
                 panic!("unreachable");
             }
         }
-        // Validate move
-        // make computer move
         let new_board = submitted_new_game_state.get_board().clone();// generate new board based on moves TEMP
-        current_game.set_board(new_board);
+        if current_game.make_move(new_board, player_list_lock) == false {
+            panic!("Move failed temp panic");
+        }
         // Maybe set status to something if needed
         return Json(current_game.clone());
     }
