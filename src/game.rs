@@ -337,9 +337,6 @@ impl Game {
     /// Computer will make their own move randomly as implementing best move algorithm was out of scope
     /// for this.
     ///
-    /// This function assumes that the front-end won't allow old tiles to be completely overwritten as
-    /// tracking individual tiles state when the board is represented by a string is impractical.
-    ///
     /// # Arguments
     ///
     /// * 'new_board' - A representation of the updated board with a yet to be validated move.
@@ -389,6 +386,7 @@ impl Game {
         match player_move {
             'X' => {
                 computer_sign = "O";
+                // Checking if the amount of X's and O's is as expected in the new board
                 if !(((new_x - current_x) == 1)
                     && (((new_o - current_o) == 0) && ((current_empty - new_empty) == 1)))
                 {
@@ -398,6 +396,7 @@ impl Game {
             }
             'O' => {
                 computer_sign = "X";
+                // Checking if the amount of X's and O's is as expected in the new board
                 if !(((new_o - current_o) == 1)
                     && (((new_x - current_x) == 0) && ((current_empty - new_empty) == 1)))
                 {
@@ -407,6 +406,17 @@ impl Game {
             }
             _ => panic!("Player move not set"), // Should be impossible, appropriate to panic
         }
+
+        // Comparing boards to make sure no previously set moves have been altered or overridden
+        for (old, new) in current_board.chars().zip(new_board.chars()) {
+            if old == 'X' || old == 'O' {
+                 if old == new {
+                    continue
+                }
+                return false;
+            }
+        }
+
         // If move is valid, set the updated board to be the current board
         self.set_board(new_board);
 
